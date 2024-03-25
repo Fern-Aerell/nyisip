@@ -32,14 +32,12 @@ std::vector<char> readBinaryFile(const std::string& filename) {
         buffer.resize(fileSize);
 
         // Baca file ke dalam buffer
-        if (file.read(buffer.data(), fileSize)) {
-            std::cout << "File berhasil dibaca." << std::endl;
-        } else {
-            std::cerr << "Gagal membaca file." << std::endl;
+        if (!file.read(buffer.data(), fileSize)) {
+            std::cerr << std::format("Tidak dapat membaca file '{}'.", filename) << std::endl;
             buffer.clear(); // Hapus buffer jika gagal membaca
         }
     } else {
-        std::cerr << "Gagal membuka file." << std::endl;
+        std::cerr << std::format("Tidak dapat membuka file '{}'.", filename) << std::endl;
     }
 
     return buffer;
@@ -130,15 +128,14 @@ bool writeBinaryFile(const std::string& filename, const std::vector<char>& data)
         // Menulis data ke dalam file
         file.write(data.data(), data.size());
         file.close();
-        std::cout << "File " << filename << " berhasil ditulis." << std::endl;
         return true;
     } else {
-        std::cerr << "Gagal membuka file untuk penulisan." << std::endl;
+        std::cerr << std::format("Tidak dapat menulis file '{}'.", filename) << std::endl;
         return false;
     }
 }
 
-void sisipKanFile(std::string& decode, const std::string& lokasiFileSisipanStr, const size_t& id) {
+void sisipKanFileById(std::string& decode, const std::string& lokasiFileSisipanStr, const size_t& id) {
     std::filesystem::path lokasiFileSisipan(lokasiFileSisipanStr);
     std::vector<char> bin = readBinaryFile(lokasiFileSisipan.string());
     std::string hex = vectorToHex(bin);
@@ -162,51 +159,49 @@ std::string removeSuffix(const std::string& str, const std::string& suffix) {
     return str;
 }
 
-struct HasilEkstrakHex {
-    std::string hexNamaFile;
-    std::string hexIsiFile;
+struct FileSisipanHex {
+    std::string namaFileHex;
+    std::string isiFileHex;
 };
 
-std::unique_ptr<HasilEkstrakHex> ekstrakHex(std::string& hex, const size_t& id, const bool& ekstrakDanHapusDariHex = false) {
-    std::string hexYangAkanDiEkstrak = hex;
-    HasilEkstrakHex hasilEkstrakHex;
+std::unique_ptr<FileSisipanHex> getFileSisipanHexById(std::string& hex, const size_t& id) {
+    FileSisipanHex fileSisipanHex;
     std::string hexTagNamaFileAwal = stringToHex(nyisipKataKunci(false, false, id));
     std::string hexTagNamaFileAkhir = stringToHex(nyisipKataKunci(false, true, id));
     std::string hexTagIsiFileAwal = stringToHex(nyisipKataKunci(true, false, id));
     std::string hexTagIsiFileAkhir = stringToHex(nyisipKataKunci(true, true, id));
     std::regex regexHexTagNamaFile(hexTagNamaFileAwal + ".*" + hexTagNamaFileAkhir);
     std::regex regexHexTagIsiFile(hexTagIsiFileAwal + ".*" + hexTagIsiFileAkhir);
-    std::sregex_iterator iterator(hexYangAkanDiEkstrak.begin(), hexYangAkanDiEkstrak.end(), regexHexTagNamaFile);
+    std::sregex_iterator iterator(hex.begin(), hex.end(), regexHexTagNamaFile);
     std::sregex_iterator endIterator;
     bool status = false;
     if(iterator != endIterator) {
         std::smatch match = *iterator;
-        hasilEkstrakHex.hexNamaFile = match.str();
-				std::cout << hexToString(hasilEkstrakHex.hexNamaFile) << "\n";
-        hasilEkstrakHex.hexNamaFile = removePrefix(hasilEkstrakHex.hexNamaFile, hexTagNamaFileAwal);
-				std::cout << hexToString(hasilEkstrakHex.hexNamaFile) << "\n";
-        hasilEkstrakHex.hexNamaFile = removeSuffix(hasilEkstrakHex.hexNamaFile, hexTagNamaFileAkhir);
-				std::cout << hexToString(hasilEkstrakHex.hexNamaFile) << "\n";
-        if(ekstrakDanHapusDariHex) {
-            hex.erase(match.position(), match.str().length());
-        }
+        fileSisipanHex.namaFileHex = match.str();
+        fileSisipanHex.namaFileHex = removePrefix(fileSisipanHex.namaFileHex, hexTagNamaFileAwal);
+        fileSisipanHex.namaFileHex = removeSuffix(fileSisipanHex.namaFileHex, hexTagNamaFileAkhir);
+        hex.erase(match.position(), match.str().size());
         status = true;
     }
-    iterator = std::sregex_iterator(hexYangAkanDiEkstrak.begin(), hexYangAkanDiEkstrak.end(), regexHexTagIsiFile);
+    iterator = std::sregex_iterator(hex.begin(), hex.end(), regexHexTagIsiFile);
     if (iterator != endIterator) {
         std::smatch match = *iterator;
-        hasilEkstrakHex.hexIsiFile = match.str();
-				std::cout << hexToString(hasilEkstrakHex.hexIsiFile) << "\n";
-        hasilEkstrakHex.hexIsiFile = removePrefix(hasilEkstrakHex.hexIsiFile, hexTagIsiFileAwal);
-				std::cout << hexToString(hasilEkstrakHex.hexIsiFile) << "\n";
-        hasilEkstrakHex.hexIsiFile = removeSuffix(hasilEkstrakHex.hexIsiFile, hexTagIsiFileAkhir);
-				std::cout << hexToString(hasilEkstrakHex.hexIsiFile) << "\n";
-        if(ekstrakDanHapusDariHex) {
-            hex.erase(match.position(), match.str().length());
-        }
+        fileSisipanHex.isiFileHex = match.str();
+        fileSisipanHex.isiFileHex = removePrefix(fileSisipanHex.isiFileHex, hexTagIsiFileAwal);
+        fileSisipanHex.isiFileHex = removeSuffix(fileSisipanHex.isiFileHex, hexTagIsiFileAkhir);
+        hex.erase(match.position(), match.str().size());
     }
-		std::cout << "status : " << status << "\n";
-    return status ? std::make_unique<HasilEkstrakHex>(std::move(hasilEkstrakHex)) : nullptr;
+    return status ? std::make_unique<FileSisipanHex>(std::move(fileSisipanHex)) : nullptr;
+}
+
+std::vector<FileSisipanHex> getAllFileSisipanHex(std::string& hex) {
+    std::vector<FileSisipanHex> kFileSisipanHex;
+    size_t id = 0;
+    while(const auto hasil = getFileSisipanHexById(hex, id)) {
+        kFileSisipanHex.push_back(*hasil);
+        ++id;
+    }
+    return kFileSisipanHex;
 }
 
 /*
@@ -225,14 +220,18 @@ int main(int argc, const char* argv[]) {
         std::filesystem::path lokasiFileYangMauDiEkstrak(argv[2]);
         std::vector<char> bin = readBinaryFile(lokasiFileYangMauDiEkstrak.string());
         std::string hex = vectorToHex(bin);
-        size_t id = 0;
-        while(const auto hasil = ekstrakHex(hex, id, strcmp(argv[1], "-eh") == 0)) {
-            std::vector<char> binIsiFile = hexToVector(hasil->hexIsiFile);
-            writeBinaryFile(lokasiFileYangMauDiEkstrak.parent_path().string() + "/" + hexToString(hasil->hexNamaFile), binIsiFile);
-            ++id;
+        std::vector<FileSisipanHex> kFileSisipanHex(getAllFileSisipanHex(hex));
+        for(const auto& fileSisipanHex : kFileSisipanHex) {
+            std::vector<char> isiFileBin = hexToVector(fileSisipanHex.isiFileHex);
+            std::string namaFile(hexToString(fileSisipanHex.namaFileHex));
+            std::string lokasiFileYangMauDisimpan = lokasiFileYangMauDiEkstrak.parent_path().string();
+            lokasiFileYangMauDisimpan = lokasiFileYangMauDisimpan.empty() ? namaFile : lokasiFileYangMauDisimpan + "/" + namaFile;
+            writeBinaryFile(lokasiFileYangMauDisimpan, isiFileBin);
         }
-        bin = hexToVector(hex);
-        writeBinaryFile(lokasiFileYangMauDiEkstrak.string(), bin);
+        if(strcmp(argv[1], "-eh") == 0) {
+            bin = hexToVector(hex);
+            writeBinaryFile(lokasiFileYangMauDiEkstrak.string(), bin);
+        }
         return 0;
     }
     if(argc > 2) {
@@ -243,7 +242,7 @@ int main(int argc, const char* argv[]) {
         std::string decode = hexToString(hex);
         size_t id = 0;
         for(size_t index = 2; index < static_cast<size_t>(argc); ++index) {
-            sisipKanFile(decode, argv[index], id);
+            sisipKanFileById(decode, argv[index], id);
             ++id;
         }
         hex = stringToHex(decode);
