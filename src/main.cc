@@ -2,7 +2,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <map>
+#include <format>
 #include <memory>
 #include <regex>
 #include <sstream>
@@ -11,10 +11,11 @@
 
 #define APP_NAME "nyisip.exe"
 #define APP_VERSION "1.0.0"
-#define TAG_NYISIP_NAMA_FILE_AWAL APP_NAME APP_VERSION "namafileawal"
-#define TAG_NYISIP_NAMA_FILE_AKHIR APP_NAME APP_VERSION "namafileakhir"
-#define TAG_NYISIP_ISI_FILE_AWAL APP_NAME APP_VERSION "isifileawal"
-#define TAG_NYISIP_ISI_FILE_AKHIR APP_NAME APP_VERSION "isifileakhir"
+
+// Fungsi untuk membuat kata kunci
+std::string nyisipKataKunci(const bool& isiFile, const bool& suffix, const size_t& id) {
+	return std::format("[{}{}{}][{}]", std::string(APP_NAME APP_VERSION), isiFile ? "isifile" : "namafile", suffix ? "akhir" : "awal", id);
+}
 
 // Fungsi untuk membaca file dalam bentuk biner
 std::vector<char> readBinaryFile(const std::string& filename) {
@@ -129,7 +130,7 @@ bool writeBinaryFile(const std::string& filename, const std::vector<char>& data)
         // Menulis data ke dalam file
         file.write(data.data(), data.size());
         file.close();
-        std::cout << "File berhasil ditulis." << std::endl;
+        std::cout << "File " << filename << " berhasil ditulis." << std::endl;
         return true;
     } else {
         std::cerr << "Gagal membuka file untuk penulisan." << std::endl;
@@ -141,8 +142,8 @@ void sisipKanFile(std::string& decode, const std::string& lokasiFileSisipanStr, 
     std::filesystem::path lokasiFileSisipan(lokasiFileSisipanStr);
     std::vector<char> bin = readBinaryFile(lokasiFileSisipan.string());
     std::string hex = vectorToHex(bin);
-    decode += TAG_NYISIP_NAMA_FILE_AWAL + std::to_string(id) + lokasiFileSisipan.filename().string() + TAG_NYISIP_NAMA_FILE_AKHIR + std::to_string(id);
-    decode += TAG_NYISIP_ISI_FILE_AWAL + std::to_string(id) + hexToString(hex) + TAG_NYISIP_ISI_FILE_AKHIR + std::to_string(id);
+    decode += nyisipKataKunci(false, false, id) + lokasiFileSisipan.filename().string() + nyisipKataKunci(false, true, id);
+    decode += nyisipKataKunci(true, false, id) + hexToString(hex) + nyisipKataKunci(true, true, id);
 }
 
 // Fungsi untuk menghapus prefix dari string
@@ -167,24 +168,25 @@ struct HasilEkstrakHex {
 };
 
 std::unique_ptr<HasilEkstrakHex> ekstrakHex(std::string& hex, const size_t& id, const bool& ekstrakDanHapusDariHex = false) {
-    std::cout << id << "\n";
     std::string hexYangAkanDiEkstrak = hex;
     HasilEkstrakHex hasilEkstrakHex;
-    bool status = false;
-    std::string hexTagNamaFileAwal = stringToHex(TAG_NYISIP_NAMA_FILE_AWAL + std::to_string(id));
-    std::string hexTagNamaFileAkhir = stringToHex(TAG_NYISIP_NAMA_FILE_AKHIR + std::to_string(id));
-    std::string hexTagIsiFileAwal = stringToHex(TAG_NYISIP_ISI_FILE_AWAL + std::to_string(id));
-    std::string hexTagIsiFileAkhir = stringToHex(TAG_NYISIP_ISI_FILE_AKHIR + std::to_string(id));
+    std::string hexTagNamaFileAwal = stringToHex(nyisipKataKunci(false, false, id));
+    std::string hexTagNamaFileAkhir = stringToHex(nyisipKataKunci(false, true, id));
+    std::string hexTagIsiFileAwal = stringToHex(nyisipKataKunci(true, false, id));
+    std::string hexTagIsiFileAkhir = stringToHex(nyisipKataKunci(true, true, id));
     std::regex regexHexTagNamaFile(hexTagNamaFileAwal + ".*" + hexTagNamaFileAkhir);
     std::regex regexHexTagIsiFile(hexTagIsiFileAwal + ".*" + hexTagIsiFileAkhir);
     std::sregex_iterator iterator(hexYangAkanDiEkstrak.begin(), hexYangAkanDiEkstrak.end(), regexHexTagNamaFile);
     std::sregex_iterator endIterator;
+    bool status = false;
     if(iterator != endIterator) {
-        std::cout << "ketemu nama" << id << "\n";
         std::smatch match = *iterator;
         hasilEkstrakHex.hexNamaFile = match.str();
+				std::cout << hexToString(hasilEkstrakHex.hexNamaFile) << "\n";
         hasilEkstrakHex.hexNamaFile = removePrefix(hasilEkstrakHex.hexNamaFile, hexTagNamaFileAwal);
+				std::cout << hexToString(hasilEkstrakHex.hexNamaFile) << "\n";
         hasilEkstrakHex.hexNamaFile = removeSuffix(hasilEkstrakHex.hexNamaFile, hexTagNamaFileAkhir);
+				std::cout << hexToString(hasilEkstrakHex.hexNamaFile) << "\n";
         if(ekstrakDanHapusDariHex) {
             hex.erase(match.position(), match.str().length());
         }
@@ -192,15 +194,18 @@ std::unique_ptr<HasilEkstrakHex> ekstrakHex(std::string& hex, const size_t& id, 
     }
     iterator = std::sregex_iterator(hexYangAkanDiEkstrak.begin(), hexYangAkanDiEkstrak.end(), regexHexTagIsiFile);
     if (iterator != endIterator) {
-        std::cout << "ketemu isi" << id << "\n";
         std::smatch match = *iterator;
         hasilEkstrakHex.hexIsiFile = match.str();
+				std::cout << hexToString(hasilEkstrakHex.hexIsiFile) << "\n";
         hasilEkstrakHex.hexIsiFile = removePrefix(hasilEkstrakHex.hexIsiFile, hexTagIsiFileAwal);
+				std::cout << hexToString(hasilEkstrakHex.hexIsiFile) << "\n";
         hasilEkstrakHex.hexIsiFile = removeSuffix(hasilEkstrakHex.hexIsiFile, hexTagIsiFileAkhir);
+				std::cout << hexToString(hasilEkstrakHex.hexIsiFile) << "\n";
         if(ekstrakDanHapusDariHex) {
             hex.erase(match.position(), match.str().length());
         }
     }
+		std::cout << "status : " << status << "\n";
     return status ? std::make_unique<HasilEkstrakHex>(std::move(hasilEkstrakHex)) : nullptr;
 }
 
@@ -220,10 +225,8 @@ int main(int argc, const char* argv[]) {
         std::filesystem::path lokasiFileYangMauDiEkstrak(argv[2]);
         std::vector<char> bin = readBinaryFile(lokasiFileYangMauDiEkstrak.string());
         std::string hex = vectorToHex(bin);
-        size_t id = 1;
-        while(true) {
-            const auto hasil = ekstrakHex(hex, id, strcmp(argv[1], "-eh") == 0);
-            if(hasil == nullptr) {break;}
+        size_t id = 0;
+        while(const auto hasil = ekstrakHex(hex, id, strcmp(argv[1], "-eh") == 0)) {
             std::vector<char> binIsiFile = hexToVector(hasil->hexIsiFile);
             writeBinaryFile(lokasiFileYangMauDiEkstrak.parent_path().string() + "/" + hexToString(hasil->hexNamaFile), binIsiFile);
             ++id;
