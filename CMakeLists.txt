@@ -22,9 +22,14 @@ file(
 	"src/**/*.cc"
 )
 
-include_directories("include")
+include_directories(include)
 
 add_executable(
     nyisip
     ${SOURCE_FILES}
+)
+
+install(
+    TARGETS nyisip
+    DESTINATION bin
 )
