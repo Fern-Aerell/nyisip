@@ -1,3 +1,3 @@
 # NYISIP
 
-Program untuk menyisipkan suatu file ke dalam suatu file.
+A program to embed a file into another file.
